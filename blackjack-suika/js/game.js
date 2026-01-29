@@ -38,10 +38,11 @@ class Game {
         this.switchCount = 0;
         this.bombCount = 0;
         this.isSwitchMode = false;
-        this.isBombMode = false; // "Bomb Drop Mode"
-        this.isBombMode = false; // "Bomb Drop Mode"
+        this.isBombMode = false;
         this.selectedBall = null;
         this.hasDropped = false;
+        this.dropCount = 0;
+        this.dangerY = CONFIG.DANGER_LINE_Y;
 
         // Queue System
         this.nextQueue = [];
@@ -138,19 +139,22 @@ class Game {
         // Mode Hint
         if (this.isSwitchMode) {
             this.ui.hint.innerText = txt.HINT_SWITCH;
+            this.ui.hint.parentElement.style.opacity = '1';
             this.ui.hint.style.color = '#ffbd00';
             this.ui.switchBtn.classList.add('active');
             this.ui.bombBtn.classList.remove('active');
         } else if (this.isBombMode) {
             this.ui.hint.innerText = txt.HINT_BOMB;
+            this.ui.hint.parentElement.style.opacity = '1';
             this.ui.hint.style.color = '#f94144';
             this.ui.bombBtn.classList.add('active');
             this.ui.switchBtn.classList.remove('active');
         } else {
             if (!this.hasDropped) {
                 this.ui.hint.innerText = txt.HINT;
+                this.ui.hint.parentElement.style.opacity = '1';
             } else {
-                this.ui.hint.innerText = "";
+                this.ui.hint.parentElement.style.opacity = '0';
             }
             this.ui.hint.style.color = '#fff';
             this.ui.switchBtn.classList.remove('active');
@@ -253,9 +257,28 @@ class Game {
             if (b.velocity.y < -CONFIG.MAX_VELOCITY) Matter.Body.setVelocity(b, { x: b.velocity.x, y: -CONFIG.MAX_VELOCITY });
 
             if (age < 1000) return;
-            if (b.position.y < CONFIG.DANGER_LINE_Y) highBall = true;
-            if (b.position.y < CONFIG.DROP_LINE_Y - 20 && Math.abs(b.velocity.y) < 0.1 && b.velocity.y > -0.1) {
-                overflow = true;
+
+            // Safety: Boundary Clamp (Prevents disappearance via tunneling)
+            if (b.position.y > CONFIG.HEIGHT + 50) {
+                Matter.Body.setPosition(b, { x: b.position.x, y: CONFIG.HEIGHT - 50 });
+                Matter.Body.setVelocity(b, { x: b.velocity.x, y: -5 });
+            }
+            if (b.position.x < -50) {
+                Matter.Body.setPosition(b, { x: 50, y: b.position.y });
+                Matter.Body.setVelocity(b, { x: 5, y: b.velocity.y });
+            }
+            if (b.position.x > CONFIG.WIDTH + 50) {
+                Matter.Body.setPosition(b, { x: CONFIG.WIDTH - 50, y: b.position.y });
+                Matter.Body.setVelocity(b, { x: -5, y: b.velocity.y });
+            }
+
+            // Dynamic Danger Logic
+            // If settled ball is ABOVE the Danger Line -> Game Over
+            if (b.position.y < this.dangerY) {
+                highBall = true;
+                if (Math.abs(b.velocity.y) < 0.2 && Math.abs(b.velocity.x) < 0.2) {
+                    overflow = true;
+                }
             }
         });
 
@@ -441,23 +464,36 @@ class Game {
             // Club -> Switch
             this.switchCount++;
             this.updateUI();
-            this.spawnFloatingText(pos.x, pos.y, txt.MSG_GET_SWITCH);
+            // this.spawnFloatingText(pos.x, pos.y, txt.MSG_GET_SWITCH);
         } else if (suit.id === 'hearts') {
             // Heart -> Bomb
             this.bombCount++;
             this.updateUI();
-            this.spawnFloatingText(pos.x, pos.y, txt.MSG_GET_BOMB);
+            // this.spawnFloatingText(pos.x, pos.y, txt.MSG_GET_BOMB);
         } else if (suit.id === 'diamonds') {
-            // Diamond -> Explosion (Physical Push)
-            this.explode(pos, 300);
-        } else if (suit.id === 'spades') {
-            // Spade -> Scatter
-            for (let i = 0; i < 5; i++) {
-                const angle = (Math.PI * 2 * i) / 5;
-                const bx = pos.x + Math.cos(angle) * 60;
-                const by = pos.y + Math.sin(angle) * 60;
-                this.forceSpawnBall(bx, by, 1, SUITS.SPADES);
+            // Diamond -> Chaos (Penalty Scatter)
+            // Spawn 4-6 random junk balls
+            const count = Math.floor(Math.random() * 3) + 4;
+            const keys = Object.keys(SUITS);
+
+            for (let i = 0; i < count; i++) {
+                // Random position near center
+                const angle = (Math.PI * 2 * i) / count;
+                const dist = 30 + Math.random() * 50;
+                const bx = pos.x + Math.cos(angle) * dist;
+                const by = pos.y + Math.sin(angle) * dist;
+
+                // Random Suit & Small Value (1-3)
+                const randKey = keys[Math.floor(Math.random() * keys.length)];
+                const randVal = Math.floor(Math.random() * 10) + 1;
+
+                this.forceSpawnBall(bx, by, randVal, SUITS[randKey]);
             }
+        } else if (suit.id === 'spades') {
+            // Spade -> Impact (Physical Push)
+            // Increased force (1.2x), No destruction
+            // Radius increased to 180 for consistency
+            this.explode(pos, 180, 1.2, false);
         }
     }
 
@@ -581,10 +617,17 @@ class Game {
         this.canDrop = false;
         this.hasDropped = true;
         this.dropCount++;
-        // Log scale increase: Y increases (moves down).
-        // Multiplier increased to 150 for significant pressure
-        this.dangerY = CONFIG.DANGER_LINE_Y + (Math.log10(this.dropCount + 1) * 150);
-        // Cap it: Don't go below Y=600 (Playable space must remain)
+
+        // Delayed Log scale: Start descending after 10 drops
+        const START_DELAY = 10;
+        if (this.dropCount > START_DELAY) {
+            // Log10(1) = 0 (Drop 11 starts at 0 offset? No, should start small)
+            // Log10(11 - 10 + 1) = Log10(2) ~ 0.3 * 120 = 36px
+            this.dangerY = CONFIG.DANGER_LINE_Y + (Math.log10(this.dropCount - START_DELAY + 1) * 120);
+        } else {
+            this.dangerY = CONFIG.DANGER_LINE_Y;
+        }
+
         this.dangerY = Math.min(this.dangerY, CONFIG.HEIGHT - 200);
 
         this.updateUI();
@@ -619,21 +662,30 @@ class Game {
         bomb.isBomb = true;
         Composite.add(this.world, bomb);
         setTimeout(() => {
-            this.explode(bomb.position, 120);
+            // Bomb Item: Destroys in range, Pushes weakly (50%)
+            this.explode(bomb.position, 120, 0.5, true);
             this.spawnParticles(bomb.position.x, bomb.position.y, 30, 'red', true);
             Composite.remove(this.world, bomb);
         }, 1200);
     }
 
-    explode(pos, radius) {
+    explode(pos, radius, forceMult = 1.0, destroy = false) {
         const bodies = Composite.allBodies(this.world);
         bodies.forEach(b => {
             if (b.isStatic) return;
             const d = Vector.magnitude(Vector.sub(b.position, pos));
+
             if (d < radius) {
-                const forceMag = 0.5 * b.mass;
-                const force = Vector.mult(Vector.normalise(Vector.sub(b.position, pos)), forceMag);
-                Matter.Body.applyForce(b, b.position, force);
+                if (destroy && b.label === 'ball') {
+                    // Destroy ball
+                    Composite.remove(this.world, b);
+                    this.spawnParticles(b.position.x, b.position.y, 10, b.gameData ? b.gameData.suit.color : '#fff');
+                } else {
+                    // Push ball
+                    const forceMag = (0.5 * b.mass) * forceMult;
+                    const force = Vector.mult(Vector.normalise(Vector.sub(b.position, pos)), forceMag);
+                    Matter.Body.applyForce(b, b.position, force);
+                }
             }
         });
     }
@@ -700,6 +752,17 @@ class Game {
         ctx.beginPath(); ctx.moveTo(10, CONFIG.DROP_LINE_Y); ctx.lineTo(CONFIG.WIDTH - 10, CONFIG.DROP_LINE_Y);
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; ctx.lineWidth = 1; ctx.stroke();
 
+        // Draw Danger Line (Always Visible)
+        ctx.beginPath();
+        ctx.moveTo(10, this.dangerY);
+        ctx.lineTo(CONFIG.WIDTH - 10, this.dangerY);
+        ctx.strokeStyle = '#ff4444'; // Slightly darker red
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]); // Solid
+        ctx.stroke();
+
+        // Removed DANGER Text as requested
+
         for (let body of bodies) {
             if (body.label === 'ball' && body.gameData) {
                 const { value, suit } = body.gameData;
@@ -739,16 +802,6 @@ class Game {
             ctx.beginPath(); ctx.moveTo(this.mouseX, CONFIG.DROP_LINE_Y); ctx.lineTo(this.mouseX, CONFIG.HEIGHT);
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)'; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
 
-            // Draw Danger Line (Dynamic)
-            ctx.beginPath();
-            ctx.moveTo(0, this.dangerY);
-            ctx.lineTo(CONFIG.WIDTH, this.dangerY);
-            ctx.strokeStyle = '#ff0000';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([10, 10]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
             ctx.beginPath(); ctx.arc(this.mouseX, CONFIG.DROP_LINE_Y, nextRadius, 0, 2 * Math.PI);
             ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fill();
 
@@ -756,20 +809,6 @@ class Game {
             ctx.font = `bold ${nextRadius}px Arial`;
             ctx.fillText(nextVal === 1 ? 'A' : nextVal, this.mouseX, CONFIG.DROP_LINE_Y);
         } else if (this.isBombMode) {
-            // Show Danger Line
-            ctx.beginPath();
-            ctx.moveTo(0, this.dangerY);
-            ctx.lineTo(CONFIG.WIDTH, this.dangerY);
-            ctx.strokeStyle = '#ff0000';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([10, 10]);
-            // Danger Label
-            ctx.fillStyle = 'red';
-            ctx.font = '14px Arial';
-            ctx.fillText(`DANGER (Lv.${this.dropCount})`, CONFIG.WIDTH - 60, this.dangerY - 10);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
             // Show Bomb ghost
             ctx.beginPath(); ctx.moveTo(this.mouseX, CONFIG.DROP_LINE_Y); ctx.lineTo(this.mouseX, CONFIG.HEIGHT);
             ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)'; ctx.stroke();

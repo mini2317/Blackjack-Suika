@@ -11,13 +11,12 @@ const CONFIG = {
 };
 
 // Ability Swap:
-// Spades <-> Clubs
-// Hearts <-> Diamonds
+// Spades <-> Diamonds
 const SUITS = {
     CLUBS: { id: 'clubs', symbol: '♣', color: '#8ecae6', effectName: 'SWITCH', rank: 0 },
     HEARTS: { id: 'hearts', symbol: '♥', color: '#f94144', effectName: 'BOMB', rank: 1 },
-    DIAMONDS: { id: 'diamonds', symbol: '♦', color: '#ff7f50', effectName: 'EXPLOSION', rank: 2 },
-    SPADES: { id: 'spades', symbol: '♠', color: '#a0a0a0', effectName: 'SCATTER', rank: 3 },
+    DIAMONDS: { id: 'diamonds', symbol: '♦', color: '#ff7f50', effectName: 'SCATTER', rank: 2 },
+    SPADES: { id: 'spades', symbol: '♠', color: '#a0a0a0', effectName: 'EXPLOSION', rank: 3 },
 };
 
 const SUIT_KEYS = Object.keys(SUITS);
@@ -64,12 +63,16 @@ const TEXTS = {
         - <b style="color:#ff4d4d">Sum > 21</b>: No Merge!<br>
         <br>
         <b>2. Rewards (Suit Effects)</b><br>
-        - <b style="color:#a0a0a0">♠ Spade</b>: <b>Scatter</b> (Spawn tiny balls).<br>
-        - <b style="color:#ff7f50">♦ Diamond</b>: <b>Explosion</b> (Push nearby balls).<br>
+        - <b style="color:#a0a0a0">♠ Spade</b>: <b>Impact</b> (Push nearby balls).<br>
+        - <b style="color:#ff7f50">♦ Diamond</b>: <b>Chaos</b> (Spawns random junk balls!).<br>
         - <b style="color:#f94144">♥ Heart</b>: <b>Bomb</b> (Get Bomb Item).<br>
         - <b style="color:#8ecae6">♣ Club</b>: <b>Switch</b> (Get Swap Item).<br>
         <br>
-        <b>3. Important Rule</b><br>
+        <b>3. Items</b><br>
+        - <b>Switch (🔁)</b>: Swap 2 balls' positions.<br>
+        - <b>Bomb (💣)</b>: Click to explode an area.<br>
+        <br>
+        <b>4. Important Rule</b><br>
         - <b>Ace (A) is ALWAYS 1.</b><br>
         - Sum to exactly <b>21</b> to clear!<br>
         - <b>Danger Line</b> lowers as you drop balls!
@@ -107,12 +110,16 @@ const TEXTS = {
         - <b style="color:#ff4d4d">합이 21 초과</b>: 합쳐지지 않습니다!<br>
         <br>
         <b>2. 무늬별 보상 (완성 시)</b><br>
-        - <b style="color:#a0a0a0">♠ 스페이드</b>: <b>산탄</b> (작은 공 흩뿌림)<br>
-        - <b style="color:#ff7f50">♦ 다이아</b>: <b>폭발</b> (주변을 밀어냄)<br>
+        - <b style="color:#a0a0a0">♠ 스페이드</b>: <b>충격</b> (주변을 밀어냄)<br>
+        - <b style="color:#ff7f50">♦ 다이아</b>: <b>혼돈</b> (랜덤한 공들이 마구 쏟아짐!)<br>
         - <b style="color:#f94144">♥ 하트</b>: <b>폭탄</b> (폭탄 아이템 획득)<br>
         - <b style="color:#8ecae6">♣ 클로버</b>: <b>스위치</b> (위치 교환 아이템 획득)<br>
         <br>
-        <b>3. 중요 규칙</b><br>
+        <b>3. 아이템</b><br>
+        - <b>스위치 (🔁)</b>: 두 공의 위치를 맞바꿉니다.<br>
+        - <b>폭탄 (💣)</b>: 원하는 곳을 클릭해 터뜨립니다.<br>
+        <br>
+        <b>4. 중요 규칙</b><br>
         - <b>A(에이스)는 무조건 1입니다.</b><br>
         - 합계가 정확히 <b>21</b>이 되면 터집니다!<br>
         - 공을 떨어뜨릴수록 <b>기준선이 점점 내려옵니다!</b>
